@@ -218,7 +218,7 @@ iteration-N/
     ├── with_skill/
     │   ├── run-1/outputs/
     │   ├── run-2/outputs/
-    │   └── run-3/outputs/
+    │   └── run-3/outputs/   ← number of runs = --runs-per-config (default 3)
     └── without_skill/
         ├── run-1/outputs/
         ├── run-2/outputs/
@@ -231,12 +231,18 @@ For each test case, spawn subagents for all runs in the same turn — the total 
 
 **With-skill run (repeat for run-1, run-2, run-3):**
 
+The placeholder fields are filled by you (the orchestrating agent) before dispatching. Concretely:
+
+- **Skill path**: absolute path to the target skill's root — the same skill your cwd is in. For baseline runs (below) this becomes "none" or the snapshot path instead.
+- **Task / Input files / Outputs to save**: copied from the eval prompt and your judgment.
+- **Save outputs to**: absolute path. Pattern is `<target-skill-root>/tests/workspace/iteration-<N>/eval-<ID>/<config>/run-<M>/outputs/`. `<N>` is the iteration number you passed to init-workspace, `<ID>` is the eval's `id` field from evals.json, `<config>` is `with_skill` or `without_skill`, `<M>` is the run number 1..runs_per_config.
+
 ```
 Execute this task:
-- Skill path: <path-to-skill>
-- Task: <eval prompt>
+- Skill path: <absolute path to the target skill root>
+- Task: <eval prompt verbatim>
 - Input files: <eval files if any, or "none">
-- Save outputs to: <workspace>/iteration-<N>/eval-<ID>/with_skill/run-<M>/outputs/
+- Save outputs to: <absolute path>/tests/workspace/iteration-<N>/eval-<ID>/with_skill/run-<M>/outputs/
 - Outputs to save: <what the user cares about — e.g., "the .docx file", "the final CSV">
 ```
 
