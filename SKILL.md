@@ -76,7 +76,7 @@ skill-name/
 └── tests/            — mandatory before deployment (#4)
 ```
 
-Run `scripts/scaffold-skill.sh <skill-name> [parent-dir]` to generate this skeleton (`parent-dir` defaults to `./skills/`).
+Run `$SKILL_CREATOR/scripts/scaffold-skill.sh <skill-name> [parent-dir]` to generate this skeleton (`parent-dir` defaults to `./skills/`).
 
 #### Progressive Disclosure
 
@@ -108,9 +108,9 @@ The AGENT reads only the relevant reference file.
 The constraints above are not advisory — they are enforced by `scripts/check-skill.py`. Run it before every commit:
 
 ```bash
-python3 scripts/check-skill.py <skill-path>              # pretty (TTY) or json (pipe)
-python3 scripts/check-skill.py <skill-path> --format json # machine-readable
-python3 scripts/check-skill.py <skill-path> --verbose     # log checks to stderr
+python3 $SKILL_CREATOR/scripts/check-skill.py <skill-path>              # pretty (TTY) or json (pipe)
+python3 $SKILL_CREATOR/scripts/check-skill.py <skill-path> --format json # machine-readable
+python3 $SKILL_CREATOR/scripts/check-skill.py <skill-path> --verbose     # log checks to stderr
 ```
 
 **Hard checks** (exit 1 on failure):
@@ -179,7 +179,17 @@ If these patterns aren't clear from the descriptions above, read the full decons
 
 This is the shared test-and-review loop used by both Create and Improve. When you reach this section (either fresh from writing a draft, or coming back to an existing skill), run it end to end — don't stop partway through. Do NOT use `/skill-test` or any other testing skill.
 
-**Before you start:** make sure your shell's working directory is the skill root — the same directory as `SKILL.md`. All paths in this section are relative to the skill root (e.g. `tests/workspace/evals.json`, `scripts/...`). If you're not there, `cd` into the skill directory first.
+**Two different "root" directories are in play.** Getting them confused is the most common source of friction in this loop:
+
+- **The target skill's root** — the skill you're creating or improving. Your shell's working directory should be here. All `tests/workspace/evals.json`, `SKILL.md`, `references/...` references below resolve against this directory. If you're not in it, `cd` into it first.
+- **skill-creator-plus's own root** — where *this* skill lives. The scripts that drive the test loop (`gen-eval.py`, `init-workspace.py`, `validate-evals.py`, `aggregate_benchmark.py`, `feedback.py`, `check-skill.py`, `validate-grading.py`, `run_one_iter.py`, `improve_description.py`) all live in **skill-creator-plus's** `scripts/`, NOT the target skill's `scripts/`. Invoke them by absolute path so the shell finds them regardless of your cwd. The default install location is `~/.claude/skills/skill-creator-plus/` — if that's where you are reading this from, use it directly:
+
+  ```bash
+  SKILL_CREATOR=~/.claude/skills/skill-creator-plus
+  python3 $SKILL_CREATOR/scripts/<script>.py <args>
+  ```
+
+  If you're reading this from somewhere else (fork, symlink, non-standard install), set `SKILL_CREATOR` to the directory containing the SKILL.md you're currently reading.
 
 ### Step 0: Draft test cases
 
@@ -189,14 +199,14 @@ First generate the starter `evals.json` with `python3 scripts/gen-eval.py <skill
 
 Three slots is the default — pick prompts a real user would actually say, covering different phrasings and at least one edge case. Share them with the user: [you don't have to use this exact language] "Here are the test cases I'd like to try. Do these look right, or do you want to add more?" Add or remove slots as you see fit.
 
-Filling the `expectations` array is **optional at this step** — if you already have a clear sense of what each test case should verify, write them now. If not, leave the array empty and you'll draft them in Step 3 while the runs are in progress. Either flow is fine; the starter has the `expectations` field there to use if you want it, not as a requirement. Validate with `python3 scripts/validate-evals.py tests/workspace/evals.json` before continuing.
+Filling the `expectations` array is **optional at this step** — if you already have a clear sense of what each test case should verify, write them now. If not, leave the array empty and you'll draft them in Step 3 while the runs are in progress. Either flow is fine; the starter has the `expectations` field there to use if you want it, not as a requirement. Validate with `python3 $SKILL_CREATOR/scripts/validate-evals.py tests/workspace/evals.json` before continuing.
 
 ### Step 1: Setup workspace
 
 Initialize the workspace before spawning runs:
 
 ```bash
-python3 scripts/init-workspace.py --skill-path . --evals tests/workspace/evals.json [--iteration N] [--runs-per-config N]
+python3 $SKILL_CREATOR/scripts/init-workspace.py --skill-path . --evals tests/workspace/evals.json [--iteration N] [--runs-per-config N]
 ```
 
 This creates `tests/workspace/` (gitignored — local run state, like node_modules). Default is 3 runs per configuration (with-skill and without-skill), producing `run-1/` through `run-3/` under each config directory. LLM output is probabilistic — multiple runs give mean ± stddev, not a single anecdotal result. For iteration 2+, pass `--iteration 2` — it adds to the existing workspace without touching previous iterations.
@@ -263,15 +273,15 @@ Each run directory already has a scaffolded `timing.json` with two fields. When 
 
 Once all runs are done:
 
-1. **Grade each run** — spawn a grader subagent (or grade inline) that reads `assets/agents/grader.md` and evaluates each expectation against the outputs. Grade each run independently (run-1, run-2, run-3 each get their own `grading.json` in the run directory). Validate with `python3 scripts/validate-grading.py <grading.json>` before proceeding — downstream scripts depend on exact field names (`text`, `passed`, `evidence`) and the validator catches mismatches. For expectations that can be checked programmatically, write and run a script rather than eyeballing it — scripts are faster, more reliable, and can be reused across runs and iterations.
+1. **Grade each run** — spawn a grader subagent (or grade inline) that reads `$SKILL_CREATOR/assets/agents/grader.md` and evaluates each expectation against the outputs. Grade each run independently (run-1, run-2, run-3 each get their own `grading.json` in the run directory). Validate with `python3 $SKILL_CREATOR/scripts/validate-grading.py <grading.json>` before proceeding — downstream scripts depend on exact field names (`text`, `passed`, `evidence`) and the validator catches mismatches. For expectations that can be checked programmatically, write and run a script rather than eyeballing it — scripts are faster, more reliable, and can be reused across runs and iterations.
 
-2. **Aggregate into benchmark** — run the aggregation script from the skill root:
+2. **Aggregate into benchmark** — run the aggregation script from the target skill's root (your cwd):
    ```bash
-   python3 scripts/aggregate_benchmark.py tests/workspace/iteration-N --skill-name my-skill
+   python3 $SKILL_CREATOR/scripts/aggregate_benchmark.py tests/workspace/iteration-N --skill-name my-skill
    ```
    Replace `my-skill` with the actual skill name (it gets written into `benchmark.md`'s title — if you skip `--skill-name`, the title shows `<skill-name>` literally). This produces `benchmark.json` and `benchmark.md` (both inside the iteration dir). The Markdown has a summary table (pass_rate, time, tokens with mean ± stddev and delta) plus a per-eval section listing each run's output file paths — use those paths to open outputs directly during the review. The script treats the first configuration it encounters as primary and the second as baseline — put `with_skill` directories before `without_skill` so the delta is computed in the right direction.
 
-3. **Do an analyst pass** — read the benchmark data and surface patterns the aggregate stats might hide. See `assets/agents/analyzer.md` (the "Analyzing Benchmark Results" section) for what to look for — things like expectations that always pass regardless of skill (non-discriminating), high-variance evals (possibly flaky), and time/token tradeoffs.
+3. **Do an analyst pass** — read the benchmark data and surface patterns the aggregate stats might hide. See `$SKILL_CREATOR/assets/agents/analyzer.md` (the "Analyzing Benchmark Results" section) for what to look for — things like expectations that always pass regardless of skill (non-discriminating), high-variance evals (possibly flaky), and time/token tradeoffs.
 
 4. **Walk the user through the results in conversation** — open `benchmark.md`, then for each eval:
    - Tell the user the pass rate and which expectations failed
@@ -279,7 +289,7 @@ Once all runs are done:
    - Ask: "How does this output look? Any specific feedback?"
    - Record their answer with `feedback.py`:
      ```bash
-     python3 scripts/feedback.py add \
+     python3 $SKILL_CREATOR/scripts/feedback.py add \
        --iteration-dir <workspace>/iteration-N \
        --run-id eval-<ID>/<config>/run-<M> \
        --feedback "<their text>"
@@ -288,7 +298,7 @@ Once all runs are done:
 
    For iteration 2+, read the previous iteration's feedback first so you can ask "last time you said X about this — still an issue?":
    ```bash
-   python3 scripts/feedback.py show --iteration-dir <workspace>/iteration-<N-1>
+   python3 $SKILL_CREATOR/scripts/feedback.py show --iteration-dir <workspace>/iteration-<N-1>
    ```
 
 5. **Tell the user** you've finished collecting feedback and are ready to improve the skill. Empty feedback across the board means everything looked good — you can suggest stopping.
@@ -301,7 +311,7 @@ Once all runs are done:
 
 This is the heart of the loop. You've run the test cases, the user has reviewed the results, and now you need to make the skill better based on their feedback.
 
-**Prerequisite check:** If the skill was not created through this workflow (e.g., an external skill the user brought in), it may lack `tests/workspace/evals.json` and the workspace structure. Before entering the iteration loop, check — if missing, scaffold them: `scripts/scaffold-skill.sh <skill-name> [parent-dir]` for the directory skeleton, `scripts/gen-eval.py` for starter evals, then write realistic test prompts and run `scripts/init-workspace.py` before spawning runs.
+**Prerequisite check:** If the skill was not created through this workflow (e.g., an external skill the user brought in), it may lack `tests/workspace/evals.json` and the workspace structure. Before entering the iteration loop, check — if missing, scaffold them: `$SKILL_CREATOR/scripts/scaffold-skill.sh <skill-name> [parent-dir]` for the directory skeleton, `$SKILL_CREATOR/scripts/gen-eval.py` for starter evals, then write realistic test prompts and run `$SKILL_CREATOR/scripts/init-workspace.py` before spawning runs.
 
 ### How to think about improvements
 
@@ -320,9 +330,9 @@ This task is pretty important (we are trying to create billions a year in econom
 After improving the skill:
 
 1. Apply your improvements to the skill
-2. Initialize the new iteration: `python3 scripts/init-workspace.py --skill-path . --evals tests/workspace/evals.json --iteration <N+1>`. This adds to the existing workspace without touching previous iterations.
+2. Initialize the new iteration: `python3 $SKILL_CREATOR/scripts/init-workspace.py --skill-path . --evals tests/workspace/evals.json --iteration <N+1>`. This adds to the existing workspace without touching previous iterations.
 3. Rerun all test cases into the new iteration directory, including baseline runs. If you're creating a new skill, the baseline is always `without_skill` (no skill) — that stays the same across iterations. If you're improving an existing skill, use your judgment on what makes sense as the baseline: the original version the user came in with, or the previous iteration.
-4. Run Step 5 again on the new iteration. When walking the user through outputs, first show the previous iteration's feedback via `python3 scripts/feedback.py show --iteration-dir <workspace>/iteration-<N>` so you can ask whether old issues are resolved.
+4. Run Step 5 again on the new iteration. When walking the user through outputs, first show the previous iteration's feedback via `python3 $SKILL_CREATOR/scripts/feedback.py show --iteration-dir <workspace>/iteration-<N>` so you can ask whether old issues are resolved.
 5. Wait for the user to review and tell you they're done
 6. Read the new feedback, improve again, repeat
 
@@ -379,11 +389,11 @@ Show the eval set to the user as a Markdown list (no HTML, no template). Read it
 Each round: run the trigger test, read the result, ask the user.
 
 ```bash
-python3 scripts/run_one_iter.py \
+python3 $SKILL_CREATOR/scripts/run_one_iter.py \
   --eval-set <path-to-trigger-eval.json> \
   --skill-path <path-to-skill> \
   --iteration 1 \
-  --output-dir <workspace>/description-optimization
+  --output-dir tests/workspace/description-optimization
 ```
 
 This writes `iter-N.md` (read this) and `iter-N.json` (for parsing the pass rate) to the output dir. Each query runs 3 times by default to get a stable trigger rate. Use the model ID from your system prompt via `--model` so the test matches what the user actually experiences.
@@ -396,7 +406,7 @@ If continuing, edit the description based on the user's feedback. Three options 
 2. **Ask the user** — sometimes they have a clear idea of the phrasing that should trigger (or not trigger).
 3. **Call `improve_description.py`** — optional helper that calls `claude -p` with a tuned prompt (don't overfit, 100-200 words, imperative voice). Useful when you're stuck or want a second-opinion draft:
    ```bash
-   python3 scripts/improve_description.py \
+   python3 $SKILL_CREATOR/scripts/improve_description.py \
      --eval-results <output-dir>/iter-N.json \
      --skill-path <path-to-skill> \
      --model <model-id> \
