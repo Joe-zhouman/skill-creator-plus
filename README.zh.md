@@ -36,16 +36,24 @@ python3 scripts/check-skill.py .
 
 ## 安装
 
+三个镜像,挑你访问最顺的一个:
+
+- GitHub: `https://github.com/Joe-zhouman/skill-creator-plus.git`
+- GitCode: `https://gitcode.com/Joe-zhouman/skill-creator-plus.git`
+- Gitee: `https://gitee.com/Joe-zhouman/skill-creator-plus.git`
+
+任选一个 clone:
+
 ```bash
-git clone <repo-url> ~/.claude/skills/skill-creator-plus
+git clone https://gitee.com/Joe-zhouman/skill-creator-plus.git ~/.claude/skills/skill-creator-plus
 ```
 
 Claude Code 会自动发现 `~/.claude/skills/` 下的 skill。当用户想创建、修改、测评、改进某个 skill 时,本 skill 会被触发。
 
-如果你要边用边改(编辑后全局立即生效),用软链接:
+如果你要边用边改(编辑后全局立即生效),clone 到工作目录,再软链到 skills 目录:
 
 ```bash
-git clone <repo-url> ~/src/skill-creator-plus
+git clone https://gitee.com/Joe-zhouman/skill-creator-plus.git ~/src/skill-creator-plus
 ln -s ~/src/skill-creator-plus ~/.claude/skills/skill-creator-plus
 ```
 

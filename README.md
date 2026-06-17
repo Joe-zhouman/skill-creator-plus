@@ -36,16 +36,24 @@ Full text: [`references/joe-standard.md`](references/joe-standard.md).
 
 ## Install
 
+Three mirrors available — pick the one with the best connectivity for you:
+
+- GitHub: `https://github.com/Joe-zhouman/skill-creator-plus.git`
+- GitCode: `https://gitcode.com/Joe-zhouman/skill-creator-plus.git`
+- Gitee: `https://gitee.com/Joe-zhouman/skill-creator-plus.git`
+
+Clone any one of them:
+
 ```bash
-git clone <repo-url> ~/.claude/skills/skill-creator-plus
+git clone https://github.com/Joe-zhouman/skill-creator-plus.git ~/.claude/skills/skill-creator-plus
 ```
 
 Claude Code auto-discovers skills under `~/.claude/skills/`. The skill triggers when the user wants to create, modify, evaluate, or improve a skill.
 
-For development (edit + immediately see changes globally), symlink instead:
+For development (edit + immediately see changes globally), clone to a working directory and symlink into the skills folder:
 
 ```bash
-git clone <repo-url> ~/src/skill-creator-plus
+git clone https://github.com/Joe-zhouman/skill-creator-plus.git ~/src/skill-creator-plus
 ln -s ~/src/skill-creator-plus ~/.claude/skills/skill-creator-plus
 ```
 
