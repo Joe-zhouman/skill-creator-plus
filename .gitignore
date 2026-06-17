@@ -1,0 +1,12 @@
+.DS_Store
+*.swp
+__pycache__/
+.pytest_cache/
+*.pyc
+# Test workspace is local run state (like node_modules) — each developer runs their own Test loop.
+tests/workspace/
+# tests/evals/ holds the test prompts the developer uses to iterate the skill locally.
+# Not shipped as a skill asset — visible only to whoever is iterating the skill.
+tests/evals/
+# Local Claude Code settings.
+.claude/
