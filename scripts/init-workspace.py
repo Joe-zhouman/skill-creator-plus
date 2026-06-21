@@ -63,10 +63,49 @@ def init_workspace(skill_path: Path, evals_path: Path, iteration: int,
     """Create workspace directory tree and eval metadata files.
 
     Returns a result dict with created paths and counts.
+
+    Raises ValueError with a structured message if evals.json is not
+    parseable or has an unsupported shape. Callers should catch and
+    convert to an error envelope.
     """
-    evals_data = json.loads(evals_path.read_text(encoding="utf-8"))
-    evals = evals_data.get("evals", [])
-    skill_name = evals_data.get("skill_name", skill_path.name)
+    try:
+        evals_data = json.loads(evals_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        raise ValueError(
+            f"evals file is not valid JSON: {e}"
+        ) from e
+
+    # Accept both shapes:
+    #   { "skill_name": "...", "evals": [...] }   ← gen-eval.py output
+    #   [...]                                      ← bare array, simpler for hand-written
+    if isinstance(evals_data, list):
+        evals = evals_data
+        skill_name = skill_path.name
+    elif isinstance(evals_data, dict):
+        if "evals" not in evals_data:
+            raise ValueError(
+                "evals file is a JSON object but has no 'evals' field. "
+                "Expected either an array of eval objects, or an object "
+                "like {\"skill_name\": \"...\", \"evals\": [...]}."
+            )
+        evals = evals_data["evals"]
+        skill_name = evals_data.get("skill_name", skill_path.name)
+    else:
+        raise ValueError(
+            f"evals file must be a JSON array or an object with an 'evals' array, "
+            f"got {type(evals_data).__name__}"
+        )
+
+    if not isinstance(evals, list):
+        raise ValueError(
+            f"'evals' field must be a JSON array, got {type(evals).__name__}"
+        )
+
+    if not evals:
+        raise ValueError(
+            "evals file contains no eval entries — refusing to scaffold an empty "
+            "workspace. Add at least one eval before running init-workspace."
+        )
 
     workspace = skill_path / "tests" / "workspace"
     iter_dir = workspace / f"iteration-{iteration}"
@@ -178,7 +217,26 @@ def main() -> int:
         print(json.dumps(err), file=sys.stderr)
         return 2
 
-    result = init_workspace(skill_path, evals_path, args.iteration, args.runs_per_config)
+    try:
+        result = init_workspace(skill_path, evals_path, args.iteration, args.runs_per_config)
+    except ValueError as e:
+        err = _error_envelope(
+            "validation_error", "invalid_evals_file",
+            str(e),
+            param="--evals",
+            hint="expected either a JSON array of eval objects, "
+                 "or an object like {\"skill_name\": \"...\", \"evals\": [...]}",
+        )
+        print(json.dumps(err), file=sys.stderr)
+        return 2
+    except OSError as e:
+        err = _error_envelope(
+            "runtime_error", "io_error",
+            f"failed to read evals file: {e}",
+            param="--evals",
+        )
+        print(json.dumps(err), file=sys.stderr)
+        return 1
 
     if fmt == "pretty":
         print(f"  workspace: {result['workspace']}")

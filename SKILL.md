@@ -197,9 +197,20 @@ All prompts here are should-trigger — cases that genuinely need the skill and 
 
 First generate the starter `evals.json` with `python3 scripts/gen-eval.py <skill-name> tests/workspace/evals.json`, then fill in with 3 realistic prompts that would trigger the skill:
 
-Three slots is the default — pick prompts a real user would actually say, covering different phrasings and at least one edge case. Share them with the user: [you don't have to use this exact language] "Here are the test cases I'd like to try. Do these look right, or do you want to add more?" Add or remove slots as you see fit.
+Three slots is the default — pick prompts a real user would actually say, covering different phrasings and at least one edge case.
 
-Filling the `expectations` array is **optional at this step** — if you already have a clear sense of what each test case should verify, write them now. If not, leave the array empty and you'll draft them in Step 3 while the runs are in progress. Either flow is fine; the starter has the `expectations` field there to use if you want it, not as a requirement. Validate with `python3 $SKILL_CREATOR/scripts/validate-evals.py tests/workspace/evals.json` before continuing.
+**Stop here and ask the user.** This is a hard gate, not optional. Show the prompts as a numbered list and explicitly ask whether to add, remove, or modify any before proceeding. Do not run `validate-evals.py` or `init-workspace.py` until the user has confirmed. The point: test cases decide what the whole iteration measures — burning subagent runs on prompts the user hasn't signed off on is wasted compute and a confused debrief.
+
+Example phrasing (adapt as needed):
+
+> Here are the 3 test cases I'd like to run:
+> 1. "<prompt 1>"
+> 2. "<prompt 2>"
+> 3. "<prompt 3>"
+>
+> Do these look right? Want to add, remove, or rephrase any before I scaffold the workspace?
+
+Once the user confirms (or you've made their requested changes), optionally fill the `expectations` array if you already have a clear sense of what each case should verify. If not, leave the array empty and you'll draft expectations in Step 3 while the runs are in progress. Either flow is fine. Validate with `python3 $SKILL_CREATOR/scripts/validate-evals.py tests/workspace/evals.json` before continuing.
 
 ### Step 1: Setup workspace
 
