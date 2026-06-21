@@ -14,6 +14,16 @@ Format:
 
 ---
 
+## 2026-06-21 skill-creator-plus has never run its own test loop
+- **What I did:** Audited `tests/workspace/` after fixing the aggregate_benchmark summary bug — wanted to verify whether the bug corrupted skill-creator-plus's own benchmark data.
+- **Expected:** Some iteration history, like skill-eval has.
+- **Actual:** `tests/workspace/` doesn't exist. skill-creator-plus has never been run through its own test loop. check-skill.py's hard #4 check ("benchmark.json must exist — Test loop has been run") has been passing because... it hasn't been passing. The skill is currently in violation of its own mandatory-tests standard.
+- **Why this matters:**
+  - skill-creator-plus's quality is unverified by its own methodology. Every other skill it produces is held to "must have run a Test loop"; it itself is not.
+  - The aggregate_benchmark bug fix (#24, commit 65b874a) has no regression evidence from this skill — it was tested against sci-draw's data, not skill-creator-plus's own.
+  - README claims "under active iteration" but there's no iteration evidence.
+- **Fix idea:** Carve out time to actually run the test loop on skill-creator-plus itself. Needs 3 realistic prompts (e.g., "create a skill that converts PDF tables to CSV", "improve my foo-skill", "evaluate the quality of bar-skill"), spawn with/without subagents, grade, aggregate. The result will populate `tests/workspace/iteration-1/` and satisfy #4 honestly. Bonus: serves as regression evidence for the aggregate fix.
+
 ## 2026-06-17 scripts/ paths assume wrong cwd when creating another skill
 - **What I did:** Used skill-creator-plus to scaffold `skill-eval`. Followed Step 0 instructions which say `python3 scripts/validate-evals.py tests/workspace/evals.json`.
 - **Expected:** Validate the evals.json file I just generated.
