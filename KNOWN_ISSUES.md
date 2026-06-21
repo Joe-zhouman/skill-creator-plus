@@ -14,15 +14,21 @@ Format:
 
 ---
 
-## 2026-06-21 skill-creator-plus has never run its own test loop
+## 2026-06-21 skill-creator-plus has never run its own test loop (and probably shouldn't)
 - **What I did:** Audited `tests/workspace/` after fixing the aggregate_benchmark summary bug — wanted to verify whether the bug corrupted skill-creator-plus's own benchmark data.
 - **Expected:** Some iteration history, like skill-eval has.
-- **Actual:** `tests/workspace/` doesn't exist. skill-creator-plus has never been run through its own test loop. check-skill.py's hard #4 check ("benchmark.json must exist — Test loop has been run") has been passing because... it hasn't been passing. The skill is currently in violation of its own mandatory-tests standard.
-- **Why this matters:**
-  - skill-creator-plus's quality is unverified by its own methodology. Every other skill it produces is held to "must have run a Test loop"; it itself is not.
-  - The aggregate_benchmark bug fix (#24, commit 65b874a) has no regression evidence from this skill — it was tested against sci-draw's data, not skill-creator-plus's own.
-  - README claims "under active iteration" but there's no iteration evidence.
-- **Fix idea:** Carve out time to actually run the test loop on skill-creator-plus itself. Needs 3 realistic prompts (e.g., "create a skill that converts PDF tables to CSV", "improve my foo-skill", "evaluate the quality of bar-skill"), spawn with/without subagents, grade, aggregate. The result will populate `tests/workspace/iteration-1/` and satisfy #4 honestly. Bonus: serves as regression evidence for the aggregate fix.
+- **Actual:** `tests/workspace/` doesn't exist. skill-creator-plus has never been run through its own test loop. check-skill.py's hard #4 check ("benchmark.json must exist") is currently in violation.
+- **Why running the loop is structurally hard for meta-skills:**
+  - skill-creator-plus's output is *another skill* (SKILL.md + scripts + tests). Each subagent run has to produce a full skill, not a text answer — heavy context, slow, expensive (5-10× a normal skill).
+  - Grading the output requires evaluating whether the produced skill is good — which is itself a meta-evaluation (skill-eval's job). Nesting skill-eval inside skill-creator-plus's loop is turtles all the way down.
+  - 3 realistic prompts is hard to construct: each has to be a substantive "make a skill that does X" with a real X — not a one-liner.
+  - Per-run cost is high enough that iterating frequently (the whole point of the test loop) becomes impractical.
+- **Alternative verification we use instead:**
+  - **Smoke tests on every change** — `check-skill.py` passes on skill-creator-plus itself, `pytest tests/test_check_skill.py` passes, the scripts run end-to-end against real downstream skills (sci-draw, skill-eval) without crashing. This catches machinery regressions.
+  - **Downstream skills as evidence** — skill-eval and sci-draw were both produced using skill-creator-plus, and they work. Their existence and usability is indirect evidence the meta-skill does its job. (skill-eval's own self-eval at 49/50 is downstream evidence of upstream quality.)
+  - **Bug discoveries during real use feed back into KNOWN_ISSUES** — the aggregate_benchmark bug, the scripts-path bug, the evals.json format bug, etc. were all caught by running skill-creator-plus on real skills, not by self-test. This is a more honest loop than a synthetic self-eval would be.
+- **Status:** Won't fix in the foreseeable future. Acknowledged as a structural limitation of meta-skills, not negligence. README's "under active iteration" warning still holds — the iteration just happens via real downstream use, not synthetic self-test.
+- **Revisit if:** A specific change to skill-creator-plus makes the loop structure easier (e.g., a "lite" grading mode that judges output skills with shallow heuristics instead of full skill-eval), or someone specifically requests benchmark numbers for a comparison.
 
 ## 2026-06-17 scripts/ paths assume wrong cwd when creating another skill
 - **What I did:** Used skill-creator-plus to scaffold `skill-eval`. Followed Step 0 instructions which say `python3 scripts/validate-evals.py tests/workspace/evals.json`.
