@@ -122,13 +122,36 @@ def load_run_results(benchmark_dir: Path) -> dict:
                     _log(f"Warning: invalid JSON in {grading_file}: {e}")
                     continue
 
+                # Compute pass/total from expectations directly. We don't trust
+                # grading.summary because grader subagents frequently omit it
+                # (they fill expectations[] but not the summary aggregate). If
+                # summary IS present and well-formed, prefer it — but fall back
+                # to recomputing from expectations when it's missing/empty.
+                expectations = grading.get("expectations", []) or []
+                passed_from_exps = sum(1 for e in expectations if e.get("passed") is True)
+                total_from_exps = len(expectations)
+
+                summary = grading.get("summary") or {}
+                if isinstance(summary, dict) and summary.get("total"):
+                    # Summary is populated and non-zero — trust it.
+                    passed = summary.get("passed", 0)
+                    failed = summary.get("failed", 0)
+                    total = summary.get("total", 0)
+                    pass_rate = summary.get("pass_rate", passed / total if total else 0.0)
+                else:
+                    # Summary missing or empty — recompute from expectations.
+                    passed = passed_from_exps
+                    total = total_from_exps
+                    failed = total - passed
+                    pass_rate = passed / total if total else 0.0
+
                 result = {
                     "eval_id": eval_id,
                     "run_number": run_number,
-                    "pass_rate": grading.get("summary", {}).get("pass_rate", 0.0),
-                    "passed": grading.get("summary", {}).get("passed", 0),
-                    "failed": grading.get("summary", {}).get("failed", 0),
-                    "total": grading.get("summary", {}).get("total", 0),
+                    "pass_rate": pass_rate,
+                    "passed": passed,
+                    "failed": failed,
+                    "total": total,
                 }
 
                 timing = grading.get("timing", {})

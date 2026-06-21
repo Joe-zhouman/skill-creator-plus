@@ -273,9 +273,17 @@ Good expectations are objectively verifiable and have descriptive names — they
 
 Update the `eval_metadata.json` files and `tests/workspace/evals.json` with the expectations once finalized. Also explain to the user what they'll see in the review — both the qualitative outputs (which you'll walk them through) and the quantitative benchmark.
 
-### Step 4: As runs complete, fill in timing data
+### Step 4: As runs complete, fill in timing data (do this per-notification, not later)
 
-Each run directory already has a scaffolded `timing.json` with two fields. When a subagent task completes, you receive a notification with `total_tokens` and `duration_ms` — fill those in immediately:
+Each run directory has a scaffolded `timing.json` with two fields, both currently `0` / `null`. **You must fill them in.** Skipping this step permanently corrupts the benchmark — aggregate_benchmark.py has no other source for token / time data, so the entire iteration's "Time" and "Tokens" columns will report as 0 and the deltas will be meaningless.
+
+The exact procedure:
+
+1. When a subagent task notification arrives, locate these two fields in the notification payload:
+   - `total_tokens` — integer, total tokens consumed by the subagent
+   - `duration_ms` — integer, wall-clock duration in milliseconds
+2. Identify which run directory the notification corresponds to (from the prompt you sent — match by eval-id, config, run number)
+3. Open `tests/workspace/iteration-N/eval-ID/<config>/run-M/timing.json` and overwrite with:
 
 ```json
 {
@@ -284,7 +292,9 @@ Each run directory already has a scaffolded `timing.json` with two fields. When 
 }
 ```
 
-(`total_duration_seconds` = `duration_ms` / 1000.) This is the only opportunity to capture this data — it comes through the task notification and isn't persisted elsewhere. Process each notification as it arrives rather than trying to batch them.
+`total_duration_seconds` = `duration_ms / 1000`. Round to 1 decimal.
+
+**Do this immediately as each notification arrives**, not in a batch later. The notification is the only place this data exists — once the next notification arrives you've lost the context for the previous one. If you wait until all runs finish before filling timing, you will not be able to reconstruct which notification belonged to which run, and the data is gone.
 
 ### Step 5: Grade, aggregate, and review with the user
 
@@ -348,6 +358,8 @@ After improving the skill:
 
 1. Apply your improvements to the skill
 2. Initialize the new iteration: `python3 $SKILL_CREATOR/scripts/init-workspace.py --skill-path . --evals tests/workspace/evals.json --iteration <N+1>`. This adds to the existing workspace without touching previous iterations.
+
+   **Do not edit `evals.json` between iterations.** Each iteration runs against the same eval set; changing the prompts/ids/counts mid-loop leaves orphans (old iteration's `eval-N/` dirs no longer correspond to anything in evals.json, and the next iteration won't have them). aggregate_benchmark will silently pick up the orphan dirs and produce nonsense numbers. If the user genuinely wants to change the eval set — different prompts, more/fewer cases — start over: delete `tests/workspace/iteration-*/` and run `init-workspace.py --iteration 1` fresh.
 3. Rerun all test cases into the new iteration directory, including baseline runs. If you're creating a new skill, the baseline is always `without_skill` (no skill) — that stays the same across iterations. If you're improving an existing skill, use your judgment on what makes sense as the baseline: the original version the user came in with, or the previous iteration.
 4. Run Step 5 again on the new iteration. When walking the user through outputs, first show the previous iteration's feedback via `python3 $SKILL_CREATOR/scripts/feedback.py show --iteration-dir <workspace>/iteration-<N>` so you can ask whether old issues are resolved.
 5. Wait for the user to review and tell you they're done
